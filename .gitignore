@@ -259,3 +259,7 @@ paket-files/
 # Python Tools for Visual Studio (PTVS)
 __pycache__/
 *.pyc
+/Externals/dxcompiler/version.txt
+/Externals/dxcompiler/dxil.dll
+/Externals/dxcompiler/dxcompiler.dll
+/Externals/DXCAPI/dxcapi.use.h

@@ -5,17 +5,20 @@ LRESULT CALLBACK DXREngine::WindowProc(HWND hWnd, UINT message, WPARAM wParam, L
 {
 	switch (message)
 	{
-	case WM_PAINT:
-		/*if (pSample)
-		{
-			pSample->OnUpdate();
-			pSample->OnRender();
-		}*/
-		GetEngine().lock()->GetRender().lock()->Draw();
+	case WM_CLOSE:
+		GetEngine()->bRequestExit = true;
+		DestroyWindow(hWnd);
 		return 0;
+	case WM_DESTROY:
+		PostQuitMessage(0);
+		return 0;
+	case WM_KEYDOWN:
+		if (wParam == VK_ESCAPE) PostQuitMessage(0);
+		return 0;
+	default:
+		return DefWindowProc(hWnd, message, wParam, lParam);
 	}
-
-	return DefWindowProc(hWnd, message, wParam, lParam);
+	
 }
 
 
@@ -40,25 +43,52 @@ void DXREngine::SetupWindow(HINSTANCE hInstance, int nCmdShow)
 
 void DXREngine::Init(HINSTANCE hInstance, int nCmdShow, int Width, int Height)
 {
+
+
 	ScreenWidth = Width;
 	ScreenHeight = Height;
 	SetupWindow(hInstance, nCmdShow);
 
+	RECT r;
+	GetClientRect(WinHandle, &r);
+	ScreenWidth = r.right - r.left;
+	ScreenHeight = r.bottom - r.top;
+
 	Renderer = std::make_shared<DXRRenderer>();
 	Renderer->Init(WinHandle, ScreenWidth, ScreenHeight);
+
+	bRequestExit = false;
 }
 
 void DXREngine::Run()
 {
-	MSG msg = {};
-	while (msg.message != WM_QUIT)
+	while (!bRequestExit)
 	{
-		// Process any messages in the queue.
-		if (PeekMessage(&msg, NULL, 0, 0, PM_REMOVE))
-		{
-			TranslateMessage(&msg);
-			DispatchMessage(&msg);
-		}
+		Tick();
+	}
+	
+}
+
+void DXREngine::Tick()
+{
+
+	PumpWinMsg();
+
+	RenderScene();
+}
+
+void DXREngine::RenderScene()
+{
+	GetRender()->Draw();
+}
+
+void DXREngine::PumpWinMsg()
+{
+	MSG msg = {};
+	while(PeekMessage(&msg, NULL, 0, 0, PM_REMOVE))
+	{
+		TranslateMessage(&msg);
+		DispatchMessage(&msg);
 	}
 }
 
@@ -67,11 +97,11 @@ void DXREngine::Exit()
 
 }
 
-weak_ptr<DXRScene> DXREngine::GetScene()
+DXRScene* DXREngine::GetScene()
 {
-	return CurrentScene;
+	return CurrentScene.get();
 }
-weak_ptr<DXRRenderer> DXREngine::GetRender()
+DXRRenderer* DXREngine::GetRender()
 {
-	return Renderer;
+	return Renderer.get();
 }

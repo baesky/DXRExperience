@@ -82,14 +82,22 @@
     <ClCompile>
       <WarningLevel>Level3</WarningLevel>
       <Optimization>Disabled</Optimization>
-      <SDLCheck>true</SDLCheck>
+      <SDLCheck>false</SDLCheck>
       <ConformanceMode>true</ConformanceMode>
       <PreprocessorDefinitions>WIN32;_UNICODE;UNICODE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <AssemblerOutput>NoListing</AssemblerOutput>
+      <UseUnicodeForAssemblerListing>false</UseUnicodeForAssemblerListing>
     </ClCompile>
     <Link>
       <AdditionalDependencies>D3D12.lib;DXGI.lib;%(AdditionalDependencies)</AdditionalDependencies>
       <SubSystem>Windows</SubSystem>
     </Link>
+    <PostBuildEvent>
+      <Command>copy /y $(SolutionDir)\Framework\Externals\dxcompiler\*.dll $(OutDir) &gt;nul
+IF not exist $(SolutionDir)Shaders\ (exit /b 0)
+IF not exist $(OutDir)\Data\ ( mkdir $(OutDir)\Shaders &gt;nul )
+copy /y $(SolutionDir)Shaders\*.* $(OutDir)\Shaders &gt;nul</Command>
+    </PostBuildEvent>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
     <ClCompile>
@@ -120,6 +128,12 @@
       <AdditionalDependencies>D3D12.lib;DXGI.lib;%(AdditionalDependencies)</AdditionalDependencies>
       <SubSystem>Windows</SubSystem>
     </Link>
+    <PostBuildEvent>
+      <Command>copy /y $(SolutionDir)\Framework\Externals\dxcompiler\*.dll $(OutDir) &gt;nul
+IF not exist $(SolutionDir)Shaders\ (exit /b 0)
+IF not exist $(OutDir)\Data\ ( mkdir $(OutDir)\Shaders &gt;nul )
+copy /y $(SolutionDir)Shaders\*.* $(OutDir)\Shaders &gt;nul</Command>
+    </PostBuildEvent>
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClCompile Include="..\Src\DXREngine.cpp" />
@@ -128,6 +142,7 @@
     <ClCompile Include="..\Src\main.cpp" />
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="..\Src\DXILLib.h" />
     <ClInclude Include="..\Src\DXREngine.h" />
     <ClInclude Include="..\Src\DXRRenderer.h" />
     <ClInclude Include="..\Src\DXRScene.h" />

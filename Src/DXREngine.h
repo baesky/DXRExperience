@@ -12,7 +12,7 @@ class DXREngine
 public:
 	DXREngine() = default;
 
-	static std::weak_ptr<DXREngine> GetEngine()
+	static DXREngine* GetEngine()
 	{
 		static std::shared_ptr<DXREngine> Engine = nullptr;
 		if (Engine == nullptr)
@@ -20,7 +20,7 @@ public:
 			Engine = std::make_shared<DXREngine>();
 		}
 
-		return Engine;
+		return Engine.get();
 	}
 
 	void Init(HINSTANCE hInstance, int nCmdShow, int Width, int Height);
@@ -30,13 +30,20 @@ public:
 	void SetupWindow(HINSTANCE hInstance, int nCmdShow);
 
 	static LRESULT CALLBACK WindowProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam);
+	static void PumpWinMsg();
 
-	std::weak_ptr<DXRScene> GetScene();
-	std::weak_ptr<DXRRenderer> GetRender();
+	void Tick();
+
+	void RenderScene();
+
+	DXRScene* GetScene();
+	DXRRenderer* GetRender();
 
 private:
 	int ScreenWidth;
 	int ScreenHeight;
+
+	bool bRequestExit;
 
 	HWND WinHandle;
 

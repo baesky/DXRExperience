@@ -13,6 +13,6 @@ public:
 	void Draw();
 
 private:
-	std::weak_ptr<DXREngine> Engine;
-	std::shared_ptr<DXRRenderer> Render;
+	DXREngine* Engine;
+	DXRRenderer* Render;
 };
