@@ -57,6 +57,7 @@ static const WCHAR* EntryRayGenShader = L"RayGen";
 static const WCHAR* EntryMissShader = L"Miss";
 static const WCHAR* EntryClosestHitShader = L"ClosestHit";
 static const WCHAR* EntryHitGroup = L"HitGroup";
+static const WCHAR* EntryIntersectionSphereShader = L"IntersectionAnalyticPrimitive";
 
 ComPtr<ID3DBlob> CompileShader(const wchar_t* FileName, const wchar_t* TargetStr)
 {
@@ -76,8 +77,19 @@ ComPtr<ID3DBlob> CompileShader(const wchar_t* FileName, const wchar_t* TargetStr
 
 	ComPtr<IDxcBlobEncoding> TextBlob;
 	Library->CreateBlobWithEncodingFromPinned((LPBYTE)Shader.c_str(), (UINT32)Shader.size(), 0, &TextBlob);
+	ComPtr<IDxcIncludeHandler> IncHandler;
+	if (SUCCEEDED(Library->CreateIncludeHandler(&IncHandler)))
+	{
+		ComPtr<IDxcBlob> IncBlob;
+		HRESULT hh = IncHandler->LoadSource(L"Shaders/ProcedureLib.hlsli", &IncBlob);
+		if (FAILED(hh))
+		{
+			return nullptr;
+		}
+	}
+
 	ComPtr<IDxcOperationResult> Result;
-	Compiler->Compile(TextBlob.Get(), FileName, L"", TargetStr, nullptr, 0, nullptr, 0, nullptr, &Result);
+	Compiler->Compile(TextBlob.Get(), FileName, L"", TargetStr, nullptr, 0, nullptr, 0, IncHandler.Get(), &Result);
 
 	HRESULT ResultCode;
 	Result->GetStatus(&ResultCode);
@@ -99,19 +111,21 @@ ComPtr<ID3DBlob> CompileShader(const wchar_t* FileName, const wchar_t* TargetStr
 
 DXILLib CreateDXILLib()
 {
-	ComPtr<ID3DBlob> DXILLibBlob = CompileShader(L"../Shaders/RayTracing.hlsl", L"lib_6_3");
-	const WCHAR* EntryPoints[] = { EntryRayGenShader , EntryMissShader , EntryClosestHitShader };
-	return DXILLib(DXILLibBlob, EntryPoints, 3);
+	ComPtr<ID3DBlob> DXILLibBlob = CompileShader(L"Shaders/RayTracing.hlsl", L"lib_6_3");
+	const WCHAR* EntryPoints[] = { EntryRayGenShader , EntryMissShader , EntryClosestHitShader, EntryIntersectionSphereShader };
+	return DXILLib(DXILLibBlob, EntryPoints, 4);
 }
 
 struct HitProgram
 {
-	HitProgram(LPCWSTR AnyHitShaderExport, LPCWSTR CloseHitShaderExport, const std::wstring& Name) : ExportName(Name)
+	HitProgram(LPCWSTR AnyHitShaderExport, LPCWSTR CloseHitShaderExport, LPCWSTR IntersectionShaderExport,const std::wstring& Name) : ExportName(Name)
 	{
 		Desc = {};
 		Desc.ClosestHitShaderImport = CloseHitShaderExport;
 		Desc.AnyHitShaderImport = AnyHitShaderExport;
 		Desc.HitGroupExport = ExportName.c_str();
+		Desc.IntersectionShaderImport = IntersectionShaderExport;
+		Desc.Type = D3D12_HIT_GROUP_TYPE_PROCEDURAL_PRIMITIVE;
 
 		SubObject.Type = D3D12_STATE_SUBOBJECT_TYPE_HIT_GROUP;
 		SubObject.pDesc = &Desc;

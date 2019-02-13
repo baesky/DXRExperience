@@ -56,15 +56,18 @@ public:
 	void Draw();
 	void OnFrameEnd();
 
+	void Exit();
+
 	ComPtr<ID3D12DescriptorHeap> CreateDescriptorHeap(unsigned int Count, D3D12_DESCRIPTOR_HEAP_TYPE Type, bool bShaderVisible = false);
 
 	D3D12_CPU_DESCRIPTOR_HANDLE CreateRTV(ID3D12Resource* Resource, ID3D12DescriptorHeap* Heap, unsigned int& UsedHeapEntries, DXGI_FORMAT Format);
 
 	ComPtr<ID3D12Resource> CreateBuffer(UINT64 Size, D3D12_RESOURCE_FLAGS Flags, D3D12_RESOURCE_STATES State, const D3D12_HEAP_PROPERTIES& HeapProps);
-	AccelerationStructureBuffers CreateBottomLevelASTri(ID3D12GraphicsCommandList4* CmdList, ID3D12Resource* Resource);
+	AccelerationStructureBuffers CreateBottomLevelAS(ID3D12GraphicsCommandList4* CmdList, ID3D12Resource* Resource);
 	AccelerationStructureBuffers CreateTopLevelAS(ID3D12GraphicsCommandList4* CmdList, ID3D12Resource* BottomLevelAS, UINT64& TlasSize);
 	void CreateAccelerationStructures();
 	ComPtr<ID3D12Resource> CreateTriangleVBTest();
+	ComPtr<ID3D12Resource> CreateSphereVB();
 
 	RayGenRootSigDesc CreateRayGenRootDesc();
 	ComPtr<ID3D12RootSignature> CreateRootSignature(const D3D12_ROOT_SIGNATURE_DESC& Desc);

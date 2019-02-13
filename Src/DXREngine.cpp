@@ -94,7 +94,7 @@ void DXREngine::PumpWinMsg()
 
 void DXREngine::Exit()
 {
-
+	GetRender()->Exit();
 }
 
 DXRScene* DXREngine::GetScene()

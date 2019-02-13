@@ -69,7 +69,12 @@
     <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
   </ImportGroup>
   <PropertyGroup Label="UserMacros" />
-  <PropertyGroup />
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
+    <IntDir>$(SolutionDir)$(Platform)\Intermediate\</IntDir>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
+    <IntDir>$(SolutionDir)$(Platform)\Intermediate\</IntDir>
+  </PropertyGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
     <ClCompile>
       <WarningLevel>Level3</WarningLevel>
@@ -93,7 +98,7 @@
       <SubSystem>Windows</SubSystem>
     </Link>
     <PostBuildEvent>
-      <Command>copy /y $(SolutionDir)\Framework\Externals\dxcompiler\*.dll $(OutDir) &gt;nul
+      <Command>copy /y $(SolutionDir)\Externals\dxcompiler\*.dll $(OutDir) &gt;nul
 IF not exist $(SolutionDir)Shaders\ (exit /b 0)
 IF not exist $(OutDir)\Data\ ( mkdir $(OutDir)\Shaders &gt;nul )
 copy /y $(SolutionDir)Shaders\*.* $(OutDir)\Shaders &gt;nul</Command>

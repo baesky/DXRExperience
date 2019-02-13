@@ -127,15 +127,21 @@ ComPtr<ID3D12Resource> DXRRenderer::CreateBuffer(UINT64 Size, D3D12_RESOURCE_FLA
 	return Buffer;
 }
 
-AccelerationStructureBuffers DXRRenderer::CreateBottomLevelASTri(ID3D12GraphicsCommandList4* CmdList, ID3D12Resource* Resource)
+AccelerationStructureBuffers DXRRenderer::CreateBottomLevelAS(ID3D12GraphicsCommandList4* CmdList, ID3D12Resource* Resource)
 {
 	D3D12_RAYTRACING_GEOMETRY_DESC GeomDesc = {};
-	GeomDesc.Type = D3D12_RAYTRACING_GEOMETRY_TYPE_TRIANGLES;
-	GeomDesc.Triangles.VertexBuffer.StartAddress = Resource->GetGPUVirtualAddress();
-	GeomDesc.Triangles.VertexBuffer.StrideInBytes = sizeof(XMFLOAT3);
-	GeomDesc.Triangles.VertexFormat = DXGI_FORMAT_R32G32B32_FLOAT;
-	GeomDesc.Triangles.VertexCount = 3;
+	//GeomDesc.Type = D3D12_RAYTRACING_GEOMETRY_TYPE_TRIANGLES;
+	//GeomDesc.Triangles.VertexBuffer.StartAddress = Resource->GetGPUVirtualAddress();
+	//GeomDesc.Triangles.VertexBuffer.StrideInBytes = sizeof(XMFLOAT3);
+	//GeomDesc.Triangles.VertexFormat = DXGI_FORMAT_R32G32B32_FLOAT;
+	//GeomDesc.Triangles.VertexCount = 3;
+	//GeomDesc.Flags = D3D12_RAYTRACING_GEOMETRY_FLAG_OPAQUE;
+	GeomDesc.Type = D3D12_RAYTRACING_GEOMETRY_TYPE_PROCEDURAL_PRIMITIVE_AABBS;
+	GeomDesc.AABBs.AABBCount = 1;
+	GeomDesc.AABBs.AABBs.StrideInBytes = sizeof(D3D12_RAYTRACING_AABB);
+	GeomDesc.AABBs.AABBs.StartAddress = Resource->GetGPUVirtualAddress();
 	GeomDesc.Flags = D3D12_RAYTRACING_GEOMETRY_FLAG_OPAQUE;
+	
 
 	D3D12_BUILD_RAYTRACING_ACCELERATION_STRUCTURE_INPUTS Inputs = {};
 	Inputs.DescsLayout = D3D12_ELEMENTS_LAYOUT_ARRAY;
@@ -217,6 +223,39 @@ AccelerationStructureBuffers DXRRenderer::CreateTopLevelAS(ID3D12GraphicsCommand
 	return Buffers;
 }
 
+ComPtr<ID3D12Resource> DXRRenderer::CreateSphereVB()
+{
+	XMINT3 AABBGrid = XMINT3(4, 1, 4);
+	const XMFLOAT3 BasePosition = 
+	{
+		-(AABBGrid.x + AABBGrid.x - 1) / 2.0f,
+		-(AABBGrid.y + AABBGrid.y - 1) / 2.0f,
+		-(AABBGrid.z + AABBGrid.z - 1) / 2.0f,
+	};
+
+	XMFLOAT3 Stride = XMFLOAT3(2, 2, 2);
+	auto InitializeAABB = [&](auto const& OffsetIdx, auto const& Size)
+	{
+		return D3D12_RAYTRACING_AABB{
+			BasePosition.x + OffsetIdx.x * Stride.x,
+			BasePosition.y + OffsetIdx.y * Stride.y,
+			BasePosition.z + OffsetIdx.z * Stride.z,
+			BasePosition.x + OffsetIdx.x * Stride.x + Size.x,
+			BasePosition.y + OffsetIdx.y * Stride.y + Size.y,
+			BasePosition.z + OffsetIdx.z * Stride.z + Size.z,
+		};
+	};
+
+	D3D12_RAYTRACING_AABB Sphere = InitializeAABB(XMFLOAT3(2.25f, 0, 1.075f), XMFLOAT3(1, 1, 1));
+	ComPtr<ID3D12Resource> Buffer = CreateBuffer(sizeof(Sphere), D3D12_RESOURCE_FLAG_NONE, D3D12_RESOURCE_STATE_GENERIC_READ, UploadHeapProps);
+	UINT8* DstData;
+	Buffer->Map(0, nullptr, (void**)&DstData);
+	memcpy(DstData, &Sphere, sizeof(Sphere));
+	Buffer->Unmap(0, nullptr);
+
+	return Buffer;
+}
+
 ComPtr<ID3D12Resource> DXRRenderer::CreateTriangleVBTest()
 {
 	const XMFLOAT3 Verts[] = 
@@ -237,8 +276,8 @@ ComPtr<ID3D12Resource> DXRRenderer::CreateTriangleVBTest()
 
 void DXRRenderer::CreateAccelerationStructures()
 {
-	VertexBuffer = CreateTriangleVBTest();
-	AccelerationStructureBuffers BLBuffer = CreateBottomLevelASTri(CommandList.Get(), VertexBuffer.Get());
+	VertexBuffer = CreateSphereVB();//CreateTriangleVBTest();
+	AccelerationStructureBuffers BLBuffer = CreateBottomLevelAS(CommandList.Get(), VertexBuffer.Get());
 	AccelerationStructureBuffers TLBuffer = CreateTopLevelAS(CommandList.Get(), BLBuffer.Result.Get(), TlasSize);
 
 	FenceValue = SubmitCommandList(CommandList.Get(), CommandQueue.Get(), RenderFence.Get(), FenceValue);
@@ -400,7 +439,7 @@ void DXRRenderer::CreateRayTracingPipelineState()
 	DXILLib DxilLib = CreateDXILLib();
 	SubObjects[Index++] = DxilLib.StateSubObj;
 
-	HitProgram HitProg(nullptr, EntryClosestHitShader, EntryHitGroup);
+	HitProgram HitProg(nullptr, EntryClosestHitShader, EntryIntersectionSphereShader, EntryHitGroup);
 	SubObjects[Index++] = HitProg.SubObject;
 
 	LocalRootSignature LocalRootSig(Device.Get(), CreateRayGenRootDesc().Desc);
@@ -418,11 +457,11 @@ void DXRRenderer::CreateRayTracingPipelineState()
 	ExportAssociation MissHitRootAssociation(MissHitExportName, 2, &(SubObjects[Index++]));
 	SubObjects[Index++] = MissHitRootAssociation.SubObject;
 
-	ShaderConfig ShaderCfg(sizeof(float) * 2, sizeof(float)*3);
+	ShaderConfig ShaderCfg(sizeof(float) * 3, sizeof(float)*5);
 	SubObjects[Index] = ShaderCfg.SubObject;
 
-	const WCHAR* ShaderExport[] = { EntryMissShader, EntryClosestHitShader, EntryRayGenShader };
-	ExportAssociation CfgAssociation(ShaderExport, 3, &(SubObjects[Index++]));
+	const WCHAR* ShaderExport[] = { EntryMissShader, EntryClosestHitShader, EntryRayGenShader, EntryIntersectionSphereShader };
+	ExportAssociation CfgAssociation(ShaderExport, 4, &(SubObjects[Index++]));
 	SubObjects[Index++] = CfgAssociation.SubObject;
 
 	PipelineConfig PipCfg(1);
@@ -493,4 +532,12 @@ void DXRRenderer::CreateShaderResource()
 	SrvHandle.ptr += Device->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
 	Device->CreateShaderResourceView(nullptr, &SrvDesc, SrvHandle);
 
+}
+
+void DXRRenderer::Exit()
+{
+	FenceValue++;
+	CommandQueue->Signal(RenderFence.Get(), FenceValue);
+	RenderFence->SetEventOnCompletion(FenceValue, FenceEvent);
+	WaitForSingleObject(FenceEvent, INFINITE);
 }
