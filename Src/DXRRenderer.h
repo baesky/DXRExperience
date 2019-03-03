@@ -69,6 +69,8 @@ public:
 	ComPtr<ID3D12Resource> CreateTriangleVBTest();
 	ComPtr<ID3D12Resource> CreateSphereVB();
 
+	void CreateAABBAttributeBuffer();
+
 	RayGenRootSigDesc CreateRayGenRootDesc();
 	ComPtr<ID3D12RootSignature> CreateRootSignature(const D3D12_ROOT_SIGNATURE_DESC& Desc);
 
@@ -112,12 +114,13 @@ private:
 	UINT64 TlasSize = 0;
 
 	ComPtr<ID3D12StateObject> PipelineStateObject;
-	ComPtr<ID3D12RootSignature> EmptyRootSig;
+	ComPtr<ID3D12RootSignature> GlobalRootSig;
 
 	ComPtr<ID3D12Resource> ShaderTable;
 	UINT32 ShaderTableEntrySize = 0;
 
 	ComPtr<ID3D12Resource> OutputResource;
+	ComPtr<ID3D12Resource> AabbAttributes;
 	ComPtr<ID3D12DescriptorHeap> SrvUavHeap;
 	static const UINT32 SrvUavHeapSize = 2;
 };

@@ -173,6 +173,33 @@ struct LocalRootSignature
 		SubObject.Type = D3D12_STATE_SUBOBJECT_TYPE_LOCAL_ROOT_SIGNATURE;
 	}
 
+	LocalRootSignature(ID3D12Device5* Device)
+	{
+		D3D12_ROOT_PARAMETER RootParams[2];
+		RootParams[0].ShaderVisibility = D3D12_SHADER_VISIBILITY_ALL;
+		RootParams[0].ParameterType = D3D12_ROOT_PARAMETER_TYPE_32BIT_CONSTANTS;
+		RootParams[0].Constants.Num32BitValues = sizeof(float) * 4;
+		RootParams[0].Constants.RegisterSpace = 0;
+		RootParams[0].Constants.ShaderRegister = 0;
+
+		RootParams[1].ShaderVisibility = D3D12_SHADER_VISIBILITY_ALL;
+		RootParams[1].ParameterType = D3D12_ROOT_PARAMETER_TYPE_32BIT_CONSTANTS;
+		RootParams[1].Constants.Num32BitValues = sizeof(int);
+		RootParams[1].Constants.RegisterSpace = 0;
+		RootParams[1].Constants.ShaderRegister = 1;
+
+		D3D12_ROOT_SIGNATURE_DESC RootSigDesc = {};
+
+		RootSigDesc.NumParameters = 2;
+		RootSigDesc.pParameters = RootParams;
+		RootSigDesc.Flags = D3D12_ROOT_SIGNATURE_FLAG_LOCAL_ROOT_SIGNATURE;
+
+		RootSig = CreateRootSig(Device, RootSigDesc);
+		Interface = RootSig.Get();
+		SubObject.pDesc = &Interface;
+		SubObject.Type = D3D12_STATE_SUBOBJECT_TYPE_LOCAL_ROOT_SIGNATURE;
+	}
+
 	ComPtr<ID3D12RootSignature> RootSig;
 	ID3D12RootSignature* Interface = nullptr;
 	D3D12_STATE_SUBOBJECT SubObject = {};
@@ -180,8 +207,36 @@ struct LocalRootSignature
 
 struct GlobalRootSignature
 {
-	GlobalRootSignature(ID3D12Device5* Device, const D3D12_ROOT_SIGNATURE_DESC& Desc)
+	GlobalRootSignature(ID3D12Device5* Device, D3D12_ROOT_SIGNATURE_DESC& Desc)
 	{
+		D3D12_DESCRIPTOR_RANGE DescRanges[2];
+		DescRanges[0].BaseShaderRegister = 0;
+		DescRanges[0].NumDescriptors = 1;
+		DescRanges[0].RegisterSpace = 0;
+		DescRanges[0].RangeType = D3D12_DESCRIPTOR_RANGE_TYPE_UAV;
+		DescRanges[0].OffsetInDescriptorsFromTableStart = 0;
+
+		DescRanges[1].BaseShaderRegister = 0;
+		DescRanges[1].NumDescriptors = 1;
+		DescRanges[1].RegisterSpace = 0;
+		DescRanges[1].RangeType = D3D12_DESCRIPTOR_RANGE_TYPE_SRV;
+		DescRanges[1].OffsetInDescriptorsFromTableStart = D3D12_DESCRIPTOR_RANGE_OFFSET_APPEND;
+
+		D3D12_ROOT_PARAMETER RootParam[2];
+		RootParam[0].ParameterType = D3D12_ROOT_PARAMETER_TYPE_DESCRIPTOR_TABLE;
+		RootParam[0].ShaderVisibility = D3D12_SHADER_VISIBILITY_ALL;
+		RootParam[0].DescriptorTable.NumDescriptorRanges = 1;
+		RootParam[0].DescriptorTable.pDescriptorRanges = &DescRanges[0];
+
+		RootParam[1].ParameterType = D3D12_ROOT_PARAMETER_TYPE_DESCRIPTOR_TABLE;
+		RootParam[1].ShaderVisibility = D3D12_SHADER_VISIBILITY_ALL;
+		RootParam[1].DescriptorTable.NumDescriptorRanges = 1;
+		RootParam[1].DescriptorTable.pDescriptorRanges = &DescRanges[1];
+
+
+		Desc.NumParameters = 2;
+		Desc.pParameters = RootParam;
+
 		RootSig = CreateRootSig(Device, Desc);
 		Interface = RootSig.Get();
 		SubObject.pDesc = &Interface;

@@ -1,14 +1,41 @@
 #ifndef PROCEDURELIB_H
 #define PROCEDURELIB_H
 
-bool HitSphere(in float3 Center, float Radius, in RayDesc Ray)
+#define T_MIN 0
+#define T_MAX 3.402823466e+38
+
+float3 PointAt(float3 RayOrigin, float3 RayDir, float t)
+{
+	return RayOrigin + RayDir * t;
+}
+
+bool HitSphere(in float3 Center, float Radius, in RayDesc Ray, out float3 Normal, out float Dist)
 {
 	float3 oc = Ray.Origin - Center;
 	float a = dot(Ray.Direction, Ray.Direction);
 	float b = 2.0f * dot(oc, Ray.Direction);
 	float c = dot(oc, oc) - Radius * Radius;
 	float Discriminat = b * b - 4.0f * a *c;
-	return Discriminat > 0.0f;
+
+	bool bHit = (Discriminat > 0.0f);
+
+	if (bHit)
+	{
+		float temp = (-b - sqrt(Discriminat)) / a;
+		if (temp < T_MAX && temp > T_MIN) {
+			Dist = temp;
+			float3 D = PointAt(Ray.Origin, Ray.Direction, Dist);
+			Normal = (D - Center) / Radius;
+		}
+		temp = (-b + sqrt(Discriminat)) / a;
+		if (temp < T_MAX && temp > T_MIN) {
+			Dist = temp;
+			float3 D = PointAt(Ray.Origin, Ray.Direction, Dist);
+			Normal = (D - Center) / Radius;
+		}
+	}
+
+	return bHit;
 }
 
 #endif

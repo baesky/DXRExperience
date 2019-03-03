@@ -88,6 +88,8 @@ void DXRRenderer::Init(HWND WinHandle, int BackbufferW, int BackbufferH)
 	//
 	CreateAccelerationStructures();
 
+	CreateAABBAttributeBuffer();
+
 	CreateRayTracingPipelineState();
 
 	CreateShaderResource();
@@ -228,9 +230,9 @@ ComPtr<ID3D12Resource> DXRRenderer::CreateSphereVB()
 	XMINT3 AABBGrid = XMINT3(4, 1, 4);
 	const XMFLOAT3 BasePosition = 
 	{
-		-(AABBGrid.x + AABBGrid.x - 1) / 2.0f,
-		-(AABBGrid.y + AABBGrid.y - 1) / 2.0f,
-		-(AABBGrid.z + AABBGrid.z - 1) / 2.0f,
+		-5,//-(AABBGrid.x + AABBGrid.x - 1) / 2.0f,
+		-5,//-(AABBGrid.y + AABBGrid.y - 1) / 2.0f,
+		-5,//-(AABBGrid.z + AABBGrid.z - 1) / 2.0f,
 	};
 
 	XMFLOAT3 Stride = XMFLOAT3(2, 2, 2);
@@ -246,7 +248,7 @@ ComPtr<ID3D12Resource> DXRRenderer::CreateSphereVB()
 		};
 	};
 
-	D3D12_RAYTRACING_AABB Sphere = InitializeAABB(XMFLOAT3(2.25f, 0, 1.075f), XMFLOAT3(1, 1, 1));
+	D3D12_RAYTRACING_AABB Sphere = InitializeAABB(XMFLOAT3(0, 0, 0), XMFLOAT3(10, 10, 10));
 	ComPtr<ID3D12Resource> Buffer = CreateBuffer(sizeof(Sphere), D3D12_RESOURCE_FLAG_NONE, D3D12_RESOURCE_STATE_GENERIC_READ, UploadHeapProps);
 	UINT8* DstData;
 	Buffer->Map(0, nullptr, (void**)&DstData);
@@ -272,6 +274,26 @@ ComPtr<ID3D12Resource> DXRRenderer::CreateTriangleVBTest()
 	Buffer->Unmap(0, nullptr);
 
 	return Buffer;
+}
+
+void DXRRenderer::CreateAABBAttributeBuffer()
+{
+	unsigned int BufferSize = /*NUM_BACK_BUFFER **/ sizeof(XMMATRIX) * 2;
+
+
+	AabbAttributes = CreateBuffer(BufferSize, D3D12_RESOURCE_FLAG_NONE, D3D12_RESOURCE_STATE_GENERIC_READ, UploadHeapProps);
+	XMMATRIX Translation = XMMatrixTranslationFromVector(XMVectorSet(.0f, .0f, .0f,1.0f));
+	XMMATRIX InvTrans = XMMatrixInverse(nullptr, Translation);
+	UINT8* DstData;
+	AabbAttributes->Map(0, nullptr, (void**)& DstData);
+	memcpy(DstData, &Translation, sizeof(XMMATRIX));
+	memcpy(DstData + sizeof(XMMATRIX), &InvTrans, sizeof(XMMATRIX));
+	/*memcpy(DstData + sizeof(XMMATRIX) * 2, &Translation, sizeof(XMMATRIX));
+	memcpy(DstData + sizeof(XMMATRIX) * 3, &InvTrans, sizeof(XMMATRIX));
+	memcpy(DstData + sizeof(XMMATRIX) * 4, &Translation, sizeof(XMMATRIX));
+	memcpy(DstData + sizeof(XMMATRIX) * 5, &InvTrans, sizeof(XMMATRIX));*/
+
+	AabbAttributes->Unmap(0, nullptr);
 }
 
 void DXRRenderer::CreateAccelerationStructures()
@@ -305,8 +327,6 @@ D3D12_CPU_DESCRIPTOR_HANDLE DXRRenderer::CreateRTV(ID3D12Resource* Resource, ID3
 
 void DXRRenderer::OnFrameBegin()
 {
-	ID3D12DescriptorHeap* Heaps[] = { SrvUavHeap.Get() };
-	CommandList->SetDescriptorHeaps(1, Heaps);
 	CurrentBackbufferIdx = SwapChain->GetCurrentBackBufferIndex();
 }
 
@@ -351,7 +371,15 @@ void DXRRenderer::Draw()
 	RayTraceDesc.HitGroupTable.StrideInBytes = ShaderTableEntrySize;
 	RayTraceDesc.HitGroupTable.SizeInBytes = ShaderTableEntrySize;
 
-	CommandList->SetComputeRootSignature(EmptyRootSig.Get());
+	CommandList->SetComputeRootSignature(GlobalRootSig.Get());
+	ID3D12DescriptorHeap* Heaps[] = { SrvUavHeap.Get() };
+	CommandList->SetDescriptorHeaps(1, Heaps);
+
+	//CommandList->SetComputeRootShaderResourceView(1, AabbAttributes->GetGPUVirtualAddress() /*+ CurrentBackbufferIdx *sizeof(XMMATRIX) * 2*/);
+	CommandList->SetComputeRootDescriptorTable(0, SrvUavHeap->GetGPUDescriptorHandleForHeapStart());
+	D3D12_GPU_DESCRIPTOR_HANDLE TLASHandle = { static_cast<UINT64>(SrvUavHeap->GetGPUDescriptorHandleForHeapStart().ptr + UINT64(Device->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV))) };
+	CommandList->SetComputeRootDescriptorTable(1, TLASHandle);
+
 	CommandList->SetPipelineState1(PipelineStateObject.Get());
 	CommandList->DispatchRays(&RayTraceDesc);
 
@@ -404,36 +432,31 @@ ComPtr<ID3D12RootSignature> DXRRenderer::CreateRootSignature(const D3D12_ROOT_SI
 
 RayGenRootSigDesc DXRRenderer::CreateRayGenRootDesc()
 {
-	RayGenRootSigDesc Desc;
-	Desc.Ranges.resize(2);
+	D3D12_ROOT_PARAMETER RootParams[2];
+	RootParams[0].ShaderVisibility = D3D12_SHADER_VISIBILITY_ALL;
+	RootParams[0].ParameterType = D3D12_ROOT_PARAMETER_TYPE_32BIT_CONSTANTS;
+	RootParams[0].Constants.Num32BitValues = sizeof(float) * 4;
+	RootParams[0].Constants.RegisterSpace = 0;
+	RootParams[0].Constants.ShaderRegister = 0;
 
-	Desc.Ranges[0].BaseShaderRegister = 0;
-	Desc.Ranges[0].NumDescriptors = 1;
-	Desc.Ranges[0].RegisterSpace = 0;
-	Desc.Ranges[0].RangeType = D3D12_DESCRIPTOR_RANGE_TYPE_UAV;
-	Desc.Ranges[0].OffsetInDescriptorsFromTableStart = 0;
+	RootParams[1].ShaderVisibility = D3D12_SHADER_VISIBILITY_ALL;
+	RootParams[1].ParameterType = D3D12_ROOT_PARAMETER_TYPE_32BIT_CONSTANTS;
+	RootParams[1].Constants.Num32BitValues = sizeof(int);
+	RootParams[1].Constants.RegisterSpace = 0;
+	RootParams[1].Constants.ShaderRegister = 1;
 
-	Desc.Ranges[1].BaseShaderRegister = 0;
-	Desc.Ranges[1].NumDescriptors = 1;
-	Desc.Ranges[1].RegisterSpace = 0;
-	Desc.Ranges[1].RangeType = D3D12_DESCRIPTOR_RANGE_TYPE_SRV;
-	Desc.Ranges[1].OffsetInDescriptorsFromTableStart = 1;
+	RayGenRootSigDesc RootSigDesc = {};
 
-	Desc.RootParams.resize(1);
-	Desc.RootParams[0].ParameterType = D3D12_ROOT_PARAMETER_TYPE_DESCRIPTOR_TABLE;
-	Desc.RootParams[0].DescriptorTable.NumDescriptorRanges = 2;
-	Desc.RootParams[0].DescriptorTable.pDescriptorRanges = Desc.Ranges.data();
+	RootSigDesc.Desc.NumParameters = 2;
+	RootSigDesc.Desc.pParameters = RootParams;
+	RootSigDesc.Desc.Flags = D3D12_ROOT_SIGNATURE_FLAG_LOCAL_ROOT_SIGNATURE;
 
-	Desc.Desc.NumParameters = 1;
-	Desc.Desc.pParameters = Desc.RootParams.data();
-	Desc.Desc.Flags = D3D12_ROOT_SIGNATURE_FLAG_LOCAL_ROOT_SIGNATURE;
-
-	return Desc;
+	return RootSigDesc;
 }
 
 void DXRRenderer::CreateRayTracingPipelineState()
 {
-	array<D3D12_STATE_SUBOBJECT, 10> SubObjects;
+	array<D3D12_STATE_SUBOBJECT, 8> SubObjects;
 	UINT32 Index = 0;
 
 	DXILLib DxilLib = CreateDXILLib();
@@ -442,18 +465,16 @@ void DXRRenderer::CreateRayTracingPipelineState()
 	HitProgram HitProg(nullptr, EntryClosestHitShader, EntryIntersectionSphereShader, EntryHitGroup);
 	SubObjects[Index++] = HitProg.SubObject;
 
-	LocalRootSignature LocalRootSig(Device.Get(), CreateRayGenRootDesc().Desc);
-	SubObjects[Index] = LocalRootSig.SubObject;
-
-	ExportAssociation RootAssociation(&EntryRayGenShader, 1, &(SubObjects[Index++]));
-	SubObjects[Index++] = RootAssociation.SubObject;
-
+	//test
 	D3D12_ROOT_SIGNATURE_DESC EmptyEsc = {};
 	EmptyEsc.Flags = D3D12_ROOT_SIGNATURE_FLAG_LOCAL_ROOT_SIGNATURE;
-	LocalRootSignature HitMissRootSig(Device.Get(), EmptyEsc);
+	//
+
+
+	LocalRootSignature HitMissRootSig(Device.Get());
 	SubObjects[Index] = HitMissRootSig.SubObject;
 
-	const WCHAR* MissHitExportName[] = { EntryMissShader, EntryClosestHitShader };
+	const WCHAR* MissHitExportName[] = { EntryIntersectionSphereShader, EntryClosestHitShader };
 	ExportAssociation MissHitRootAssociation(MissHitExportName, 2, &(SubObjects[Index++]));
 	SubObjects[Index++] = MissHitRootAssociation.SubObject;
 
@@ -464,12 +485,12 @@ void DXRRenderer::CreateRayTracingPipelineState()
 	ExportAssociation CfgAssociation(ShaderExport, 4, &(SubObjects[Index++]));
 	SubObjects[Index++] = CfgAssociation.SubObject;
 
-	PipelineConfig PipCfg(1);
+	PipelineConfig PipCfg(3);
 	SubObjects[Index++] = PipCfg.SubObject;
-
-	GlobalRootSignature GlobalRootSig(Device.Get(), {});
-	EmptyRootSig = GlobalRootSig.RootSig;
-	SubObjects[Index++] = GlobalRootSig.SubObject;
+	D3D12_ROOT_SIGNATURE_DESC TempDesc = {};
+	GlobalRootSignature GlobalRS(Device.Get(), TempDesc);
+	GlobalRootSig = GlobalRS.RootSig;
+	SubObjects[Index++] = GlobalRS.SubObject;
 
 	D3D12_STATE_OBJECT_DESC Desc;
 	Desc.NumSubobjects = Index;
@@ -493,8 +514,6 @@ void DXRRenderer::CreateShaderTable()
 	ComPtr<ID3D12StateObjectProperties> SOProps;
 	PipelineStateObject->QueryInterface(IID_PPV_ARGS(&SOProps));
 	memcpy(Data, SOProps->GetShaderIdentifier(EntryRayGenShader), D3D12_SHADER_IDENTIFIER_SIZE_IN_BYTES);
-
-	*(UINT64*)(Data + D3D12_SHADER_IDENTIFIER_SIZE_IN_BYTES) = SrvUavHeap->GetGPUDescriptorHandleForHeapStart().ptr;
 
 	memcpy(Data + ShaderTableEntrySize, SOProps->GetShaderIdentifier(EntryMissShader), D3D12_SHADER_IDENTIFIER_SIZE_IN_BYTES);
 

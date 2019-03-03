@@ -50,10 +50,10 @@ float4 TraceScene(in RayDesc Ray, in uint CurrentRayDepth)
 {
 	if (CurrentRayDepth >= MAX_RAY_RECURSION_DEPTH)
 	{
-		return float4(0, 0, 0, 1);
+		return float4(1, 0, 0, 1);
 	}
 
-	RayPayload Payload = { float4(0, 0, 0, 1), CurrentRayDepth + 1 };
+	RayPayload Payload = { float4(0, 0, 1, 1), CurrentRayDepth + 1 };
 
 	TraceRay(gRtScene, 
 		RAY_FLAG_CULL_BACK_FACING_TRIANGLES, 
@@ -79,15 +79,14 @@ void RayGen()
 	float AspectRatio = Dims.x / Dims.y;
 
 	RayDesc Ray;
-	Ray.Origin = float3(0, 0, -2);
+	Ray.Origin = float3(0, 0, -11);
 	Ray.Direction = normalize(float3(d.x * AspectRatio, -d.y, 1));
 
 	Ray.TMin = 0;
 	Ray.TMax = 10000;
 
-	RayPayload Payload;
 	float4 Col = TraceScene(Ray, 0);
-	Col.xyz = linearToSrgb(Payload.Color.xyz);
+	Col.xyz = linearToSrgb(Col.xyz);
 	gOutput[TIndex.xy] = float4(Col.xyz, 1);
 }
 
@@ -95,14 +94,14 @@ void RayGen()
 void Miss(inout RayPayload payload)
 {
 	float t = 0.5f*(WorldRayDirection().y + 1.0f);
-	payload.Color = float4((1.0f - t)*float3(1.0, 1.0, 1.0) + t * float3(0.5, 0.7, 1.0), 1.0);
+	payload.Color = float4((1.0f - t) * float3(1.0, 1.0, 1.0) + t * float3(0.5, 0.7, 1.0), 1.0);
 }
 
 [shader("closesthit")]
-void ClosestHit(inout RayPayload Payload, in ProceduralPrimitiveAttributes attribs)
+void ClosestHit(inout RayPayload Payload, in ProceduralPrimitiveAttributes Attr)
 {
-		
-	Payload.Color = float4(1,0,0,1);
+	float3 Range = 0.5f * (Attr.Normal + float3(1.0f, 1.0f, 1.0f));
+	Payload.Color = float4(Range,1);
 
 }
 
@@ -124,7 +123,7 @@ bool RaySpheresIntersectionTest(in RayDesc Ray, out float thit, out ProceduralPr
 	float3 centers[N] =
 	{
 		float3(-0.3, -0.3, -0.3),
-		float3(0.1, 0.1, 0.4),
+		float3(0, 0, 0),
 		float3(0.35,0.35, 0.0)
 	};
 	float  radii[N] = { 0.6, 0.3, 0.15 };
@@ -152,11 +151,11 @@ bool RaySpheresIntersectionTest(in RayDesc Ray, out float thit, out ProceduralPr
 	//	}
 	//}
 
-	if (HitSphere(centers[1], 0.5, Ray))
+	if (HitSphere(centers[1], 3.0f, Ray, Attr.Normal, thit))
 	{
 		hitFound = true;
 	}
-
+	
 	return hitFound;
 }
 
