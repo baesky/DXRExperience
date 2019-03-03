@@ -16,18 +16,18 @@ bool HitSphere(in float3 Center, float Radius, in RayDesc Ray, out float3 Normal
 	float b = 2.0f * dot(oc, Ray.Direction);
 	float c = dot(oc, oc) - Radius * Radius;
 	float Discriminat = b * b - 4.0f * a *c;
-
+	
 	bool bHit = (Discriminat > 0.0f);
 
 	if (bHit)
 	{
-		float temp = (-b - sqrt(Discriminat)) / a;
+		float temp = 0.5 * (-b - sqrt(Discriminat)) / a;
 		if (temp < T_MAX && temp > T_MIN) {
 			Dist = temp;
 			float3 D = PointAt(Ray.Origin, Ray.Direction, Dist);
 			Normal = (D - Center) / Radius;
 		}
-		temp = (-b + sqrt(Discriminat)) / a;
+		temp = 0.5 * (-b + sqrt(Discriminat)) / a;
 		if (temp < T_MAX && temp > T_MIN) {
 			Dist = temp;
 			float3 D = PointAt(Ray.Origin, Ray.Direction, Dist);
