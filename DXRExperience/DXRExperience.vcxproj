@@ -132,6 +132,7 @@ copy /y $(SolutionDir)Shaders\*.* $(OutDir)\Shaders &gt;nul</Command>
       <OptimizeReferences>true</OptimizeReferences>
       <AdditionalDependencies>D3D12.lib;DXGI.lib;%(AdditionalDependencies)</AdditionalDependencies>
       <SubSystem>Windows</SubSystem>
+      <LinkTimeCodeGeneration>UseLinkTimeCodeGeneration</LinkTimeCodeGeneration>
     </Link>
     <PostBuildEvent>
       <Command>copy /y $(SolutionDir)\Framework\Externals\dxcompiler\*.dll $(OutDir) &gt;nul

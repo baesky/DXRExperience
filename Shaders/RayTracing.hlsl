@@ -48,12 +48,12 @@ struct RayPayload
 
 float4 TraceScene(in RayDesc Ray, in uint CurrentRayDepth)
 {
-	if (CurrentRayDepth >= MAX_RAY_RECURSION_DEPTH)
+	if (CurrentRayDepth > MAX_RAY_RECURSION_DEPTH)
 	{
-		return float4(1, 0, 0, 1);
+		return float4(0, 0, 0, 0);
 	}
 
-	RayPayload Payload = { float4(0, 0, 1, 1), CurrentRayDepth + 1 };
+	RayPayload Payload = { float4(0, 0, 0, 0), CurrentRayDepth + 1 };
 
 	TraceRay(gRtScene, 
 		RAY_FLAG_CULL_BACK_FACING_TRIANGLES, 
@@ -79,8 +79,16 @@ void RayGen()
 	float AspectRatio = Dims.x / Dims.y;
 
 	RayDesc Ray;
-	Ray.Origin = float3(0, 0, -11);
-	Ray.Direction = normalize(float3(d.x * AspectRatio, -d.y, 1));
+	Ray.Origin = float3(0, 0, -1);
+
+	float3 TempDir = normalize(float3(0, 0, 1) - Ray.Origin);
+	float3 Right = cross(float3(0, 1, 0), TempDir);
+	float3 Up = cross(TempDir, Right);
+
+	Ray.Direction = normalize(d.x * AspectRatio * Right - d.y * Up + 2.0*TempDir);
+
+	/*Ray.Origin = float3(0, 0, -11);
+	Ray.Direction = normalize(float3(d.x * AspectRatio, -d.y, 1));*/
 
 	Ray.TMin = 0;
 	Ray.TMax = 10000;
@@ -93,13 +101,44 @@ void RayGen()
 [shader("miss")]
 void Miss(inout RayPayload payload)
 {
-	float t = 0.5f*(WorldRayDirection().y + 1.0f);
+	float t = (WorldRayDirection().y + 1.0f);
+
 	payload.Color = float4((1.0f - t) * float3(1.0, 1.0, 1.0) + t * float3(0.5, 0.7, 1.0), 1.0);
 }
 
 [shader("closesthit")]
 void ClosestHit(inout RayPayload Payload, in ProceduralPrimitiveAttributes Attr)
 {
+	/*float3 hitPosition = HitWorldPosition();
+
+	RayDesc ReflectionRay;
+	ReflectionRay.Origin = hitPosition;
+	ReflectionRay.Direction = reflect(WorldRayDirection(), Attr.Normal);
+
+	Payload.RayDepth = Payload.RayDepth + 1;
+
+	if (Payload.RayDepth >= MAX_RAY_RECURSION_DEPTH)
+	{
+		Payload.Color = float4(0, 0, 0, 0);
+		return;
+	}
+
+	TraceRay(gRtScene,
+		RAY_FLAG_CULL_BACK_FACING_TRIANGLES,
+		0xFF,
+		0,
+		0,
+		0,
+		ReflectionRay,
+		Payload);*/
+
+	
+	//float4 ReflectionColor = TraceScene(ReflectionRay, Payload.RayDepth);
+
+
+
+	//Payload.Color = 0.5 * ReflectionColor;
+
 	float3 Range = 0.5f * (Attr.Normal + float3(1.0f, 1.0f, 1.0f));
 	Payload.Color = float4(Range,1);
 
@@ -119,43 +158,40 @@ void ClosestHit(inout RayPayload Payload, in ProceduralPrimitiveAttributes Attr)
 
 bool RaySpheresIntersectionTest(in RayDesc Ray, out float thit, out ProceduralPrimitiveAttributes Attr)
 {
-	const int N = 3;
+	const int N = 2;
 	float3 centers[N] =
 	{
-		float3(-0.3, -0.3, -0.3),
-		float3(0, 0, 0),
-		float3(0.35,0.35, 0.0)
+		float3(0, -100.05, 1),
+		float3(0, 0, 1),
+		//float3(0.35,0.35, 0.0)
 	};
-	float  radii[N] = { 0.6, 0.3, 0.15 };
+	float  radii[N] = { 100.0f, 0.5f/*, 0.15*/ };
 	bool hitFound = false;
 
 	//
 	// Test for intersection against all spheres and take the closest hit.
 	//
-	//thit = RayTCurrent();
+	thit = RayTCurrent();
 
 	//// test against all spheres
-	//for (int i = 0; i < N; i++)
-	//{
-	//	float _thit;
-	//	float _tmax;
-	//	ProceduralPrimitiveAttributes _attr;
-	//	if (RaySphereIntersectionTest(Ray, _thit, _tmax, _attr, centers[i], radii[i]))
-	//	{
-	//		if (_thit < thit)
-	//		{
-	//			thit = _thit;
-	//			attr = _attr;
-	//			hitFound = true;
-	//		}
-	//	}
-	//}
-
-	if (HitSphere(centers[1], 3.0f, Ray, Attr.Normal, thit))
+	for (int i = 0; i < N; i++)
 	{
-		hitFound = true;
+		float _thit;
+		float _tmax;
+		ProceduralPrimitiveAttributes _attr;
+
+		if (HitSphere(centers[i], radii[i], Ray, _attr.Normal, _thit))
+		{
+			if (_thit < thit)
+			{
+				thit = _thit;
+				Attr = _attr;
+				hitFound = true;
+			}
+			
+		}
 	}
-	
+
 	return hitFound;
 }
 

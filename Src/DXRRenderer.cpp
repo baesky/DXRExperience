@@ -18,11 +18,11 @@ void DXRRenderer::Init(HWND WinHandle, int BackbufferW, int BackbufferH)
 	FenceValue = 0;
 
 #ifdef _DEBUG
-	ComPtr<ID3D12Debug> Debug;
+	/*ComPtr<ID3D12Debug> Debug;
 	if (SUCCEEDED(D3D12GetDebugInterface(IID_PPV_ARGS(&Debug))))
 	{
 		Debug->EnableDebugLayer();
-	}
+	}*/
 #endif
 	
 #ifdef PIX_PROFILE 
@@ -230,9 +230,9 @@ ComPtr<ID3D12Resource> DXRRenderer::CreateSphereVB()
 	XMINT3 AABBGrid = XMINT3(4, 1, 4);
 	const XMFLOAT3 BasePosition = 
 	{
-		-5,//-(AABBGrid.x + AABBGrid.x - 1) / 2.0f,
-		-5,//-(AABBGrid.y + AABBGrid.y - 1) / 2.0f,
-		-5,//-(AABBGrid.z + AABBGrid.z - 1) / 2.0f,
+		-50,//-(AABBGrid.x + AABBGrid.x - 1) / 2.0f,
+		-50,//-(AABBGrid.y + AABBGrid.y - 1) / 2.0f,
+		-50,//-(AABBGrid.z + AABBGrid.z - 1) / 2.0f,
 	};
 
 	XMFLOAT3 Stride = XMFLOAT3(2, 2, 2);
@@ -248,7 +248,7 @@ ComPtr<ID3D12Resource> DXRRenderer::CreateSphereVB()
 		};
 	};
 
-	D3D12_RAYTRACING_AABB Sphere = InitializeAABB(XMFLOAT3(0, 0, 0), XMFLOAT3(10, 10, 10));
+	D3D12_RAYTRACING_AABB Sphere = InitializeAABB(XMFLOAT3(0, 0, 0), XMFLOAT3(200, 200, 200));
 	ComPtr<ID3D12Resource> Buffer = CreateBuffer(sizeof(Sphere), D3D12_RESOURCE_FLAG_NONE, D3D12_RESOURCE_STATE_GENERIC_READ, UploadHeapProps);
 	UINT8* DstData;
 	Buffer->Map(0, nullptr, (void**)&DstData);
