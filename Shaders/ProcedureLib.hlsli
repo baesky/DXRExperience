@@ -4,6 +4,26 @@
 #define T_MIN 0
 #define T_MAX 3.402823466e+38
 
+//
+float Rand(float2 co) {
+	return frac(sin(dot(co.xy, float2(12.9898, 78.233))) * 43758.5453);
+}
+
+#define HASHSCALE3 float3(.1031, .1030, .0973)
+float3 hash32(float2 p)
+{
+	float3 p3 = frac(float3(p.xyx) * HASHSCALE3);
+	p3 += dot(p3, p3.yxz + 19.19);
+	return frac((p3.xxy + p3.yzz) * p3.zyx);
+}
+float2 hash21(float p)
+{
+	float3 p3 = frac(float3(p,p,p) * HASHSCALE3);
+	p3 += dot(p3, p3.yzx + 19.19);
+	return frac((p3.xx + p3.yz) * p3.zy);
+
+}
+
 float3 PointAt(float3 RayOrigin, float3 RayDir, float t)
 {
 	return RayOrigin + RayDir * t;

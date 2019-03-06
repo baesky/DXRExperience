@@ -222,7 +222,7 @@ struct GlobalRootSignature
 		DescRanges[1].RangeType = D3D12_DESCRIPTOR_RANGE_TYPE_SRV;
 		DescRanges[1].OffsetInDescriptorsFromTableStart = D3D12_DESCRIPTOR_RANGE_OFFSET_APPEND;
 
-		D3D12_ROOT_PARAMETER RootParam[2];
+		D3D12_ROOT_PARAMETER RootParam[3];
 		RootParam[0].ParameterType = D3D12_ROOT_PARAMETER_TYPE_DESCRIPTOR_TABLE;
 		RootParam[0].ShaderVisibility = D3D12_SHADER_VISIBILITY_ALL;
 		RootParam[0].DescriptorTable.NumDescriptorRanges = 1;
@@ -233,8 +233,13 @@ struct GlobalRootSignature
 		RootParam[1].DescriptorTable.NumDescriptorRanges = 1;
 		RootParam[1].DescriptorTable.pDescriptorRanges = &DescRanges[1];
 
+		RootParam[2].ParameterType = D3D12_ROOT_PARAMETER_TYPE_32BIT_CONSTANTS;
+		RootParam[2].ShaderVisibility = D3D12_SHADER_VISIBILITY_ALL;
+		RootParam[2].Constants.Num32BitValues = sizeof(UINT);
+		RootParam[2].Constants.RegisterSpace = 1;
+		RootParam[2].Constants.ShaderRegister = 0;
 
-		Desc.NumParameters = 2;
+		Desc.NumParameters = 3;
 		Desc.pParameters = RootParam;
 
 		RootSig = CreateRootSig(Device, Desc);

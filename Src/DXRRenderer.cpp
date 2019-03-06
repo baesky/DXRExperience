@@ -18,11 +18,11 @@ void DXRRenderer::Init(HWND WinHandle, int BackbufferW, int BackbufferH)
 	FenceValue = 0;
 
 #ifdef _DEBUG
-	/*ComPtr<ID3D12Debug> Debug;
+	ComPtr<ID3D12Debug> Debug;
 	if (SUCCEEDED(D3D12GetDebugInterface(IID_PPV_ARGS(&Debug))))
 	{
 		Debug->EnableDebugLayer();
-	}*/
+	}
 #endif
 	
 #ifdef PIX_PROFILE 
@@ -350,8 +350,11 @@ void DXRRenderer::OnFrameEnd()
 	CommandList->Reset(FrameObjects[bufferIndex].CmdAllocator.Get(), nullptr);
 }
 
+static UINT GCounter = 0;
+
 void DXRRenderer::Draw()
 {
+	++GCounter;
 	OnFrameBegin();
 
 	ResourceBarrier(CommandList.Get(), OutputResource.Get(), D3D12_RESOURCE_STATE_COPY_SOURCE, D3D12_RESOURCE_STATE_UNORDERED_ACCESS);
@@ -379,6 +382,7 @@ void DXRRenderer::Draw()
 	CommandList->SetComputeRootDescriptorTable(0, SrvUavHeap->GetGPUDescriptorHandleForHeapStart());
 	D3D12_GPU_DESCRIPTOR_HANDLE TLASHandle = { static_cast<UINT64>(SrvUavHeap->GetGPUDescriptorHandleForHeapStart().ptr + UINT64(Device->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV))) };
 	CommandList->SetComputeRootDescriptorTable(1, TLASHandle);
+	CommandList->SetComputeRoot32BitConstants(2, sizeof(UINT),&GCounter, 0);
 
 	CommandList->SetPipelineState1(PipelineStateObject.Get());
 	CommandList->DispatchRays(&RayTraceDesc);
@@ -478,14 +482,14 @@ void DXRRenderer::CreateRayTracingPipelineState()
 	ExportAssociation MissHitRootAssociation(MissHitExportName, 2, &(SubObjects[Index++]));
 	SubObjects[Index++] = MissHitRootAssociation.SubObject;
 
-	ShaderConfig ShaderCfg(sizeof(float) * 3, sizeof(float)*5);
+	ShaderConfig ShaderCfg(sizeof(float) * 8, sizeof(float)*11);
 	SubObjects[Index] = ShaderCfg.SubObject;
 
 	const WCHAR* ShaderExport[] = { EntryMissShader, EntryClosestHitShader, EntryRayGenShader, EntryIntersectionSphereShader };
 	ExportAssociation CfgAssociation(ShaderExport, 4, &(SubObjects[Index++]));
 	SubObjects[Index++] = CfgAssociation.SubObject;
 
-	PipelineConfig PipCfg(3);
+	PipelineConfig PipCfg(9);
 	SubObjects[Index++] = PipCfg.SubObject;
 	D3D12_ROOT_SIGNATURE_DESC TempDesc = {};
 	GlobalRootSignature GlobalRS(Device.Get(), TempDesc);
